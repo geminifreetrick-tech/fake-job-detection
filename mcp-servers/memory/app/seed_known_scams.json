@@ -1,0 +1,50 @@
+[
+  {
+    "id": "scam-001",
+    "document": "Work from home data entry – earn $5000/week. No experience needed. Send your CV via WhatsApp.",
+    "category": "data-entry-mule",
+    "severity": "high"
+  },
+  {
+    "id": "scam-002",
+    "document": "Secret shopper position – evaluate stores and earn $300 per visit. Send a check to verify your account.",
+    "category": "check-overpayment",
+    "severity": "high"
+  },
+  {
+    "id": "scam-003",
+    "document": "Package reshipping agent. Receive packages at home and forward them. Weekly salary $2000.",
+    "category": "reshipping-mule",
+    "severity": "critical"
+  },
+  {
+    "id": "scam-004",
+    "document": "Bitcoin trading assistant. Use your personal bank account to receive funds and forward them to our wallet.",
+    "category": "money-mule",
+    "severity": "critical"
+  },
+  {
+    "id": "scam-005",
+    "document": "Virtual assistant – flexible hours. Pay $99 training fee, refundable after first paycheck.",
+    "category": "advance-fee",
+    "severity": "medium"
+  },
+  {
+    "id": "scam-006",
+    "document": "Online surveys – earn $100/day. Click here to register. Limited time offer!",
+    "category": "phishing",
+    "severity": "low"
+  },
+  {
+    "id": "scam-007",
+    "document": "Congratulations! You have been selected for an exclusive remote position at Amazn-Careers. Contact via Telegram.",
+    "category": "brand-impersonation",
+    "severity": "high"
+  },
+  {
+    "id": "scam-008",
+    "document": "Hiring now – binary options trading. Unlimited earning potential. Easy money guaranteed!",
+    "category": "financial-fraud",
+    "severity": "high"
+  }
+]

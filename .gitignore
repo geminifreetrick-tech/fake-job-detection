@@ -1,0 +1,35 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+env/
+.env
+.env.local
+*.log
+*.sqlite3
+.tarballs/
+
+# ML artifacts
+ml-engine/model_store/*.joblib
+ml-engine/model_store/manifest.json
+
+# Frontend (phase 2+)
+node_modules/
+dist/
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Docker
+*.pid

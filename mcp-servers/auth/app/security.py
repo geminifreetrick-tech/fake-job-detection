@@ -23,20 +23,27 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_token(sub: str, role: str, kind: Literal["access", "refresh"]) -> str:
+def create_token(
+    sub: str,
+    role: str,
+    kind: Literal["access", "refresh"],
+    email: str | None = None,
+) -> str:
     ttl = (
         timedelta(minutes=settings.jwt_access_ttl_min)
         if kind == "access"
         else timedelta(days=settings.jwt_refresh_ttl_days)
     )
     now = _now()
-    payload = {
+    payload: dict[str, object] = {
         "sub": sub,
         "role": role,
         "kind": kind,
         "iat": int(now.timestamp()),
         "exp": int((now + ttl).timestamp()),
     }
+    if email:
+        payload["email"] = email
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

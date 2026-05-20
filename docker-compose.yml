@@ -93,6 +93,59 @@ services:
       timeout: 5s
       retries: 30
 
+  filesystem-mcp:
+    <<: *python-base
+    build:
+      context: .
+      dockerfile: mcp-servers/filesystem/Dockerfile
+    volumes:
+      - fjduploads:/app/uploads
+      - fjdreports:/app/reports
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8400/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
+  websearch-mcp:
+    <<: *python-base
+    build:
+      context: .
+      dockerfile: mcp-servers/websearch/Dockerfile
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8600/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
+  notification-mcp:
+    <<: *python-base
+    build:
+      context: .
+      dockerfile: mcp-servers/notification/Dockerfile
+    depends_on:
+      db-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8300/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
+  analytics-mcp:
+    <<: *python-base
+    build:
+      context: .
+      dockerfile: mcp-servers/analytics/Dockerfile
+    depends_on:
+      db-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8800/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
   backend:
     <<: *python-base
     build:
@@ -107,10 +160,35 @@ services:
         condition: service_healthy
       memory-mcp:
         condition: service_healthy
+      filesystem-mcp:
+        condition: service_healthy
+      websearch-mcp:
+        condition: service_healthy
+      notification-mcp:
+        condition: service_healthy
+      analytics-mcp:
+        condition: service_healthy
     ports:
       - "8000:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
+  frontend:
+    restart: unless-stopped
+    networks: [fjd-net]
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1/ || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 15
@@ -123,3 +201,5 @@ volumes:
   pgdata:
   chromadata:
   mlmodels:
+  fjduploads:
+  fjdreports:

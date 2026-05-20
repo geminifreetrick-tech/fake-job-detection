@@ -11,6 +11,16 @@ from ..deps import get_db_client, get_memory_client
 router = APIRouter(prefix="/me", tags=["me"])
 
 
+@router.get("")
+async def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict:
+    """Return the current authenticated user (id, email, role)."""
+    return {
+        "user_id": user.user_id,
+        "email": user.email,
+        "role": user.role,
+    }
+
+
 @router.get("/jobs")
 async def my_jobs(
     user: Annotated[CurrentUser, Depends(get_current_user)],

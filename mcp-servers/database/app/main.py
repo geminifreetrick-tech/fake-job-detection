@@ -11,12 +11,18 @@ from _common.logging import configure_logging  # noqa: E402
 
 from .db import init_db
 from .routes import router
+from .seed import seed_all
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     configure_logging()
     await init_db()
+    try:
+        await seed_all()
+    except Exception:
+        # Don't crash the service if seeding fails; logs will show.
+        pass
     yield
 
 

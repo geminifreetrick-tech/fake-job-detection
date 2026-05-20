@@ -15,6 +15,11 @@ class Settings(BaseSettings):
 
     service_token: str = "change-me-internal-service-token"
 
+    # Optional admin bootstrap. When both are set, an admin user is upserted
+    # on startup. Useful for local dev / demo.
+    bootstrap_admin_email: str | None = None
+    bootstrap_admin_password: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

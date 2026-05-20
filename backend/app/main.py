@@ -16,16 +16,22 @@ except Exception:  # pragma: no cover
     def configure_logging() -> None:
         logging.basicConfig(level=logging.INFO)
 
+from .api import admin as admin_router
 from .api import auth as auth_router
+from .api import awareness as awareness_router
+from .api import companies as companies_router
+from .api import files as files_router
+from .api import internal as internal_router
 from .api import jobs as jobs_router
 from .api import me as me_router
+from .api import reports as reports_router
 from .core.config import settings
 from .ws.routes import router as ws_router
 
 
 configure_logging()
 
-app = FastAPI(title="fjd-backend", version="0.1.0")
+app = FastAPI(title="fjd-backend", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,7 +45,13 @@ PREFIX = "/api/v1"
 app.include_router(auth_router.router, prefix=PREFIX)
 app.include_router(jobs_router.router, prefix=PREFIX)
 app.include_router(me_router.router, prefix=PREFIX)
-app.include_router(ws_router)  # WS lives at /ws (no prefix)
+app.include_router(reports_router.router, prefix=PREFIX)
+app.include_router(awareness_router.router, prefix=PREFIX)
+app.include_router(companies_router.router, prefix=PREFIX)
+app.include_router(files_router.router, prefix=PREFIX)
+app.include_router(admin_router.router, prefix=PREFIX)
+app.include_router(internal_router.router)  # /internal/* (no /api/v1)
+app.include_router(ws_router)  # WS at /ws (no prefix)
 
 
 @app.get("/healthz")
@@ -55,6 +67,10 @@ async def healthz_v1() -> dict:
         "db-mcp": f"{settings.db_mcp_url}/healthz",
         "ml-engine": f"{settings.ml_engine_url}/healthz",
         "memory-mcp": f"{settings.memory_mcp_url}/healthz",
+        "filesystem-mcp": f"{settings.filesystem_mcp_url}/healthz",
+        "websearch-mcp": f"{settings.websearch_mcp_url}/healthz",
+        "notification-mcp": f"{settings.notification_mcp_url}/healthz",
+        "analytics-mcp": f"{settings.analytics_mcp_url}/healthz",
     }
     results: dict[str, str] = {}
     async with httpx.AsyncClient(timeout=2.0) as client:

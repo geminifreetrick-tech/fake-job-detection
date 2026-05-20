@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     db_mcp_url: str = "http://db-mcp:8500"
     ml_engine_url: str = "http://ml-engine:8100"
     memory_mcp_url: str = "http://memory-mcp:8200"
+    filesystem_mcp_url: str = "http://filesystem-mcp:8400"
+    websearch_mcp_url: str = "http://websearch-mcp:8600"
+    notification_mcp_url: str = "http://notification-mcp:8300"
+    analytics_mcp_url: str = "http://analytics-mcp:8800"
 
     service_token: str = "change-me-internal-service-token"
     jwt_secret: str = "change-me-jwt-signing-secret"

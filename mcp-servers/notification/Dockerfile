@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 RUN pip install --no-cache-dir \
       "fastapi==0.115.5" "uvicorn[standard]==0.32.1" \
-      "pydantic==2.9.2" "pydantic-settings==2.6.1" \
+      "pydantic[email]==2.9.2" "pydantic-settings==2.6.1" \
       "httpx==0.27.2"
 
 COPY mcp-servers/_common /app/_common

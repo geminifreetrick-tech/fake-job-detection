@@ -23,8 +23,8 @@ async def _get_user_by_email(session: AsyncSession, email: str) -> User | None:
 
 def _issue_tokens(user: User) -> TokenPair:
     return TokenPair(
-        access_token=create_token(user.id, user.role, "access"),
-        refresh_token=create_token(user.id, user.role, "refresh"),
+        access_token=create_token(user.id, user.role, "access", user.email),
+        refresh_token=create_token(user.id, user.role, "refresh", user.email),
     )
 
 

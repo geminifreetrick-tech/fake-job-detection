@@ -1,37 +1,49 @@
 # Fake Job Detection and Awareness System
 
-A full-stack platform that detects fraudulent job postings and helps users
-recognize scams. This repository contains **Phase 1**: the FastAPI gateway, ML
-detection engine, and the Memory MCP server, plus the minimal Auth and DB MCP
-servers required for an end-to-end slice.
+A full-stack platform that detects fraudulent job postings, verifies the
+companies behind them, and educates users on the patterns scammers use.
+
+**Status: Phase 1 + Phase 2 complete** — full stack (frontend + backend +
+9 internal services) orchestrated via `docker compose`.
 
 Architecture and roadmap:
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - [docs/PHASE1_PLAN.md](./docs/PHASE1_PLAN.md)
+- [docs/PHASE2_PLAN.md](./docs/PHASE2_PLAN.md)
 
 ---
 
 ## Quick start
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/geminifreetrick-tech/fake-job-detection.git
 cd fake-job-detection
 cp .env.example .env
 # IMPORTANT: edit .env and replace the change-me secrets before running.
+# Optional: set BOOTSTRAP_ADMIN_EMAIL/PASSWORD to auto-create an admin user.
 
-# Bring up the Phase-1 stack
 docker compose up -d --build
 
 # Wait ~30s for everything to come healthy, then check
 curl http://localhost:8000/healthz
 curl http://localhost:8000/api/v1/healthz | jq
 
-# Sign up
-curl -X POST localhost:8000/api/v1/auth/signup \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.com","password":"correct horse battery"}' | tee /tmp/tok.json
+# Open the frontend
+open http://localhost:5173       # macOS
+xdg-open http://localhost:5173   # Linux
+```
 
-TOKEN=$(jq -r .access_token /tmp/tok.json)
+The Vite-built React frontend is served on `http://localhost:5173` and proxies
+`/api/*` and `/ws` requests to the FastAPI gateway in the same compose network.
+
+### API usage from cURL
+
+```bash
+# Sign up
+TOKEN=$(curl -s -X POST localhost:8000/api/v1/auth/signup \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"correct horse battery"}' \
+  | jq -r .access_token)
 
 # Analyze a text job posting
 curl -X POST localhost:8000/api/v1/jobs/analyze \
@@ -44,40 +56,64 @@ curl -X POST localhost:8000/api/v1/jobs/analyze-file \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@/path/to/posting.pdf" | jq
 
-# See your history + similar known scams
-curl -H "Authorization: Bearer $TOKEN" localhost:8000/api/v1/me/context | jq
+# Verify a company
+curl -X POST localhost:8000/api/v1/companies/verify \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Acme Corporation","domain":"acme.com"}' | jq
+
+# Submit a scam report
+curl -X POST localhost:8000/api/v1/reports \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Fake recruiter on LinkedIn","description":"…","company":"Acme"}' | jq
+
+# Generate a PDF report for an analysed job
+curl -X POST localhost:8000/api/v1/files/reports/<job_id> \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 ---
 
 ## Services in this repo
 
-| Service           | Path                       | Port (internal) | Exposed |
-|-------------------|----------------------------|-----------------|---------|
-| Backend gateway   | `backend/`                 | 8000            | yes     |
-| ML engine         | `ml-engine/`               | 8100            | no      |
-| Memory MCP        | `mcp-servers/memory/`      | 8200            | no      |
-| Auth MCP          | `mcp-servers/auth/`        | 8700            | no      |
-| Database MCP      | `mcp-servers/database/`    | 8500            | no      |
-| Postgres          | (docker image)             | 5432            | no      |
-| ChromaDB          | (docker image)             | 8000            | no      |
+| Service             | Path                         | Internal port | Exposed | Phase |
+|---------------------|------------------------------|---------------|---------|-------|
+| Frontend            | `frontend/`                  | 80            | **5173**| 2     |
+| Backend gateway     | `backend/`                   | 8000          | **8000**| 1     |
+| ML engine           | `ml-engine/`                 | 8100          | no      | 1     |
+| Memory MCP          | `mcp-servers/memory/`        | 8200          | no      | 1     |
+| Notification MCP    | `mcp-servers/notification/`  | 8300          | no      | 2     |
+| Filesystem MCP      | `mcp-servers/filesystem/`    | 8400          | no      | 2     |
+| Database MCP        | `mcp-servers/database/`      | 8500          | no      | 1     |
+| Web-search MCP      | `mcp-servers/websearch/`     | 8600          | no      | 2     |
+| Auth MCP            | `mcp-servers/auth/`          | 8700          | no      | 1     |
+| Analytics MCP       | `mcp-servers/analytics/`     | 8800          | no      | 2     |
+| Postgres            | (docker image)               | 5432          | no      | 1     |
+| ChromaDB            | (docker image)               | 8000          | no      | 1     |
 
-Phase 2+ adds Frontend (Vite/React), File-System MCP, Web-Search MCP,
-Notification MCP, and Analytics MCP. See
-[docs/PHASE1_PLAN.md](./docs/PHASE1_PLAN.md#out-of-scope-for-phase-1-roadmap).
+Only the backend gateway (8000) and the frontend (5173) are published to the
+host. Everything else is reachable only on the internal `fjd-net` Docker
+network and gated by the `X-Service-Token` header.
 
 ---
 
 ## Configuration
 
 All configuration is via `.env`. See [.env.example](./.env.example) for the
-full set. Two values **must** be changed before deploying:
+full set. These must be changed before deploying:
 
 - `SERVICE_TOKEN` — shared secret for internal service-to-service auth.
 - `JWT_SECRET` — HMAC key used by `auth-mcp` to sign user access tokens.
 
-The backend gateway decodes user JWTs locally using the same secret as
-`auth-mcp`, so the two values must match.
+Optional Phase-2 integrations:
+- `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ENGINE_ID` — enable real Google Custom
+  Search lookups in the websearch MCP. Without these, the service falls back
+  to heuristic-only scoring (WHOIS + domain rules).
+- `SMTP_HOST` (+ user/password) — send real email notifications. Without it,
+  the notification MCP logs emails to stdout (useful for dev).
+- `BOOTSTRAP_ADMIN_EMAIL` + `BOOTSTRAP_ADMIN_PASSWORD` — auto-create an admin
+  user in `auth-mcp` on first start (idempotent).
 
 ---
 
@@ -99,9 +135,17 @@ The classifier is `XGBClassifier` trained on
 rows; see [`datasets/README.md`](./ml-engine/datasets/README.md) for caveats
 and how to swap in a real dataset).
 
-Explainability uses `shap.TreeExplainer`; the API surfaces the top-5 features
+Explainability uses `shap.TreeExplainer`; the API surfaces the top features
 by absolute SHAP contribution with a human-readable label and direction
 (fraud vs legit).
+
+### OCR
+
+`POST /api/v1/jobs/analyze-file` accepts PDF / PNG / JPG:
+- PDFs are first parsed via PyMuPDF's text layer; if empty, each page is
+  rasterized and run through Tesseract.
+- Images go straight through Tesseract.
+- Plain text is passed through unchanged.
 
 ### Re-training
 
@@ -109,28 +153,23 @@ by absolute SHAP contribution with a human-readable label and direction
 # Inside the ml-engine container (or your local venv):
 python -m app.models.train --data datasets/sample_jobs.csv --out model_store/
 # Then reload the live model without restarting:
-curl -X POST http://localhost:8100/model/reload   # (internal only)
+curl -X POST http://localhost:8100/model/reload
 ```
-
-The image build runs the training step so the container is usable
-out-of-the-box without a pre-existing volume.
-
-### OCR
-
-`POST /predict/file` accepts PDF / PNG / JPG:
-- PDFs are first parsed via PyMuPDF's text layer; if empty, each page is
-  rasterized and run through Tesseract.
-- Images go straight through Tesseract.
-- Plain text is passed through unchanged.
 
 ---
 
-## Internal API contracts
+## Awareness module
 
-See [docs/ARCHITECTURE.md §6](./docs/ARCHITECTURE.md#6-internal-api-contracts-summary)
-for the full list. All internal services require the `X-Service-Token` header
-and are not exposed on the host network. Each service publishes its own
-OpenAPI spec at `/openapi.json` and a `/healthz` probe.
+Articles and quizzes are seeded into the database on first startup
+([`mcp-servers/database/app/seed.py`](./mcp-servers/database/app/seed.py)).
+Articles are stored as Markdown and rendered inside the React app via a
+minimal, XSS-safe renderer ([`frontend/src/lib/markdown.tsx`](./frontend/src/lib/markdown.tsx)).
+Quiz answers are kept server-side and never sent down to the client until
+the user submits.
+
+To add or edit content, modify `seed.py` and bump the file's modification
+time, or POST directly to `db-mcp` `/articles` / `/quizzes` (service-token
+required).
 
 ---
 
@@ -145,15 +184,23 @@ cd ml-engine && pip install -e ".[test]" && pytest -q
 cd mcp-servers/auth && pip install -e ".[test]" && pytest -q
 cd mcp-servers/database && pip install -e ".[test]" && pytest -q
 cd mcp-servers/memory && pip install -e ".[test]" && pytest -q
+cd mcp-servers/filesystem && pip install -e ".[test]" && pytest -q
+cd mcp-servers/websearch && pip install -e ".[test]" && pytest -q
+cd mcp-servers/notification && pip install -e ".[test]" && pytest -q
+cd mcp-servers/analytics && pip install -e ".[test]" && pytest -q
 cd backend && pip install -e ".[test]" && pytest -q
+cd frontend && npm install && npm test
 ```
+
+Phase 2 totals: **84 Python tests + 4 TypeScript tests**, all passing.
 
 ### End-to-end smoke (docker-compose)
 
 ```bash
 docker compose up -d --build
-sleep 30
+sleep 60
 curl -fsS localhost:8000/api/v1/healthz | jq
+curl -fsS localhost:5173 -o /dev/null -w "frontend: %{http_code}\n"
 
 # Sign up + analyze a known-scam text
 TOKEN=$(curl -s -X POST localhost:8000/api/v1/auth/signup \
@@ -180,8 +227,19 @@ fake-job-detection/
 ├── Makefile
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   └── PHASE1_PLAN.md
-├── backend/                       # FastAPI gateway (Phase 1)
+│   ├── PHASE1_PLAN.md
+│   └── PHASE2_PLAN.md
+├── frontend/                      # Vite + React + Tailwind + Recharts
+│   ├── src/pages/                 # user + admin pages
+│   ├── src/components/            # ScoreMeter, Layout, ExplanationsTable
+│   ├── src/lib/                   # api client, markdown renderer, formatters
+│   └── Dockerfile                 # multi-stage: node build → nginx static
+├── backend/                       # FastAPI gateway
+│   ├── app/api/                   # routers (auth, jobs, me, reports,
+│   │                              # awareness, companies, files, admin,
+│   │                              # internal)
+│   ├── app/clients/               # downstream HTTP clients
+│   └── app/ws/                    # WebSocket hub
 ├── ml-engine/                     # ML detection engine + OCR
 │   ├── app/pipeline/              # feature extractors
 │   ├── app/models/                # train + SHAP
@@ -189,28 +247,18 @@ fake-job-detection/
 │   └── datasets/                  # bundled training data + lexicon
 ├── mcp-servers/
 │   ├── _common/                   # shared http + logging + security helpers
-│   ├── auth/                      # JWT issuance + user CRUD
-│   ├── database/                  # Postgres CRUD for jobs/predictions
-│   └── memory/                    # ChromaDB-backed RAG + user context
+│   ├── auth/                      # JWT issuance + user CRUD + admin role
+│   ├── database/                  # Postgres CRUD for jobs/predictions/
+│   │                              # reports/articles/quizzes/notifications
+│   ├── memory/                    # ChromaDB-backed RAG + user context
+│   ├── filesystem/                # uploads + PDF report rendering
+│   ├── websearch/                 # Google CSE + WHOIS company verification
+│   ├── notification/              # email + WebSocket notifications
+│   └── analytics/                 # aggregated metrics + dashboard composition
 ├── infra/
 │   └── postgres/init.sql
-└── tests/integration/             # docker-compose end-to-end (Phase 1 stub)
+└── tests/integration/             # docker-compose end-to-end
 ```
-
----
-
-## What's *not* in this repo yet
-
-This is Phase 1. Deferred to subsequent phases (see `docs/PHASE1_PLAN.md`):
-
-- Frontend (Vite/React/Tailwind/Recharts dashboard)
-- File-System MCP (uploads + PDF report rendering)
-- Web-Search MCP (company verification: Google CSE + WHOIS)
-- Notification MCP (email + WebSocket fanout)
-- Analytics MCP (aggregated metrics)
-- Admin dashboard & scam-reporting workflow
-- Awareness Module (articles + quizzes)
-- mTLS / Prometheus / Grafana / k8s Helm chart
 
 ---
 
